@@ -108,9 +108,11 @@ def consult_mission_ai_chat(user_directive, current_algo, current_scenario):
         f"ACTIVE OPTIMIZER SYSTEM: {current_algo}\n\n"
         "YOUR MISSION DESIGN STEPS:\n"
         "1. If the user input is 'INITIALIZE_ENVIRONMENT', give a super fun, 2-sentence intro to this map. "
-        "Then, add a short rule: 'Look down below! See those locked math slots on your dashboard? Every time you talk to me or type a physical strategy to solve this map, we unlock a piece of the secret final formula! You can speak into your microphone or type to reply back!' End by asking one simple question about how to roll down the slope.\n"
-        "2. When the user replies with an idea (by text or voice), praise them with high energy! Connect their physical idea to one symbol and unlock it. Then state what simple goal is left.\n"
-        "3. Once they handle the basic concepts, unlock everything and say: 'Woohoo! System synchronized! The final master formula is complete! Click that huge ENGAGE LIVE PLOT button below to see your line roll down live!' Set ready_to_simulate to true.\n\n"
+        "Explain that there are locked formulas below, and they can unlock them by talking or typing physical ideas. "
+        "Explicitly tell them that they can use their microphone to speak directly to you. End by asking one simple question about how to roll down the slope.\n"
+        "2. When the user replies with an idea, praise them with high energy! Connect their physical idea to one symbol and unlock it. Then state what simple goal is left.\n"
+        "3. Once all symbols are unlocked and they hit play, congratulate them! In your radio_transmission, explain exactly what happened visually on the graph (e.g., 'See how your ball didn't just crawl down, but gained speed down the hill and shot straight up the other side before settling at the bottom? That is momentum tracking!'). Then explain the final master formula simply, thank them for completing the mission, and say: 'Good job! Now you officially know Gradient Descent with Momentum!'\n"
+        "4. AFTER this final celebration, change your style: open the floor for an Ask-Me-Anything discussion. Tell the user they can now ask any question they want about optimization, math, or vectors, and you will answer them simply like an expert buddy!\n\n"
         "MATH UNMASKING DESIGNATIONS:\n"
         "- For Momentum: ['w_t', 'grad_w', 'v_t', 'beta']\n"
         "- For Adam: ['m_t', 'v_t', 'm_hat', 'v_hat']\n"
@@ -242,7 +244,7 @@ elif st.session_state.app_screen == "HUD":
         contours_z=dict(show=True, usecolormap=False, highlightcolor=radar_line_color, project_z=True, color=radar_line_color)
     )])
 
-    # --- PLOTLY TRAJECTORY ENGINE ---
+    # --- PLOTLY TRAJECTORY ENGINE (WITH CINEMATIC ORBIT MATRIX) ---
     if st.session_state.simulation_path is not None:
         path_data = st.session_state.simulation_path
         unlocked_symbols = st.session_state.unlocked_math_symbols
@@ -252,7 +254,7 @@ elif st.session_state.app_screen == "HUD":
         
         if len(path_data.shape) == 2:  
             z_vals = [f_eval(p[0], p[1]) for p in path_data]
-            algo_color = '#00ffcc' if "Momentum" in st.session_state.selected_algo else '#ff007f'
+            total_steps = len(path_data)
             
             fig.add_trace(go.Scatter3d(
                 x=[path_data[0, 0]], y=[path_data[0, 1]], z=[z_vals[0]],
@@ -270,19 +272,32 @@ elif st.session_state.app_screen == "HUD":
             target_trace_index = len(fig.data) - 2 
             shadow_trace_index = len(fig.data) - 1 
             
-            for idx in range(1, len(path_data) + 1):
+            for idx in range(1, total_steps + 1):
                 sub_path = path_data[:idx]
                 sub_z = [f_eval(p[0], p[1]) for p in sub_path]
                 frame_name = f'step_{idx}'
+                
+                # --- CINEMATIC CAM MATH SWEEP ---
+                angle = (idx / total_steps) * (2 * np.pi)
+                orbit_radius = 1.6
                 
                 frames.append(go.Frame(
                     data=[
                         go.Scatter3d(x=sub_path[:, 0], y=sub_path[:, 1], z=sub_z, mode='lines+markers', marker=dict(size=6, color=sub_z, colorscale='Jet'), line=dict(color=sub_z, colorscale='Jet', width=9)),
                         go.Scatter3d(x=sub_path[:, 0], y=sub_path[:, 1], z=[0]*len(sub_path), mode='lines', line=dict(color='rgba(255,255,255,0.3)', width=3, dash='dash'))
                     ],
-                    name=frame_name, traces=[target_trace_index, shadow_trace_index]
+                    name=frame_name, 
+                    traces=[target_trace_index, shadow_trace_index],
+                    layout=dict(
+                        scene=dict(
+                            camera=dict(
+                                eye=dict(x=float(orbit_radius * np.cos(angle)), y=float(orbit_radius * np.sin(angle)), z=1.2),
+                                center=dict(x=0, y=0, z=-0.1)
+                            )
+                        )
+                    )
                 ))
-                slider_steps.append(dict(args=[[frame_name], dict(mode="immediate", transition=dict(duration=0), frame=dict(duration=0, redraw=False))], label=str(idx), method="animate"))
+                slider_steps.append(dict(args=[[frame_name], dict(mode="immediate", transition=dict(duration=0), frame=dict(duration=0, redraw=True))], label=str(idx), method="animate"))
                 
             annotations_3d.append(dict(
                 showarrow=True, arrowhead=2, x=path_data[0,0], y=path_data[0,1], z=f_eval(path_data[0,0], path_data[0,1]),
@@ -290,14 +305,30 @@ elif st.session_state.app_screen == "HUD":
             ))
             
         elif len(path_data.shape) == 3:  
+            total_steps = len(path_data)
             fig.add_trace(go.Scatter3d(x=path_data[0, :, 0], y=path_data[0, :, 1], z=[f_eval(w[0], w[1]) for w in path_data[0]], mode='markers', marker=dict(size=7, color='#ffaa00', symbol='x'), name='AGWO Swarm'))
             target_trace_index = len(fig.data) - 1
             
-            for idx in range(len(path_data)):
+            for idx in range(total_steps):
                 swarm_pos = path_data[idx]
                 frame_name = f'step_{idx}'
-                frames.append(go.Frame(data=[go.Scatter3d(x=swarm_pos[:, 0], y=swarm_pos[:, 1], z=[f_eval(w[0], w[1]) for w in swarm_pos], mode='markers', marker=dict(size=7, color='#ffaa00', symbol='x'))], name=frame_name, traces=[target_trace_index]))
-                slider_steps.append(dict(args=[[frame_name], dict(mode="immediate", transition=dict(duration=0), frame=dict(duration=0, redraw=False))], label=str(idx + 1), method="animate"))
+                angle = (idx / total_steps) * (2 * np.pi)
+                orbit_radius = 1.6
+                
+                frames.append(go.Frame(
+                    data=[go.Scatter3d(x=swarm_pos[:, 0], y=swarm_pos[:, 1], z=[f_eval(w[0], w[1]) for w in swarm_pos], mode='markers', marker=dict(size=7, color='#ffaa00', symbol='x'))], 
+                    name=frame_name, 
+                    traces=[target_trace_index],
+                    layout=dict(
+                        scene=dict(
+                            camera=dict(
+                                eye=dict(x=float(orbit_radius * np.cos(angle)), y=float(orbit_radius * np.sin(angle)), z=1.2),
+                                center=dict(x=0, y=0, z=-0.1)
+                            )
+                        )
+                    )
+                ))
+                slider_steps.append(dict(args=[[frame_name], dict(mode="immediate", transition=dict(duration=0), frame=dict(duration=0, redraw=True))], label=str(idx + 1), method="animate"))
 
             annotations_3d.append(dict(
                 showarrow=True, arrowhead=2, x=path_data[0,0,0], y=path_data[0,0,1], z=f_eval(path_data[0,0,0], path_data[0,0,1]),
@@ -310,7 +341,8 @@ elif st.session_state.app_screen == "HUD":
             updatemenus=[dict(
                 type="buttons", direction="left", x=0.05, y=-0.05, xanchor="right", yanchor="top", pad=dict(t=15, r=10), showactive=False,
                 buttons=[
-                    dict(label="▶ PLAY DESCENT", method="animate", args=[None, dict(frame=dict(duration=500, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=150))]),
+                    # Keep redraw=True so the thick lines paint sequentially without vanishing
+                    dict(label="▶ PLAY DESCENT", method="animate", args=[None, dict(frame=dict(duration=600, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=150))]),
                     dict(label="⏸ PAUSE", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=True), mode="immediate", transition=dict(duration=0))])
                 ]
             )],
@@ -319,29 +351,30 @@ elif st.session_state.app_screen == "HUD":
     else:
         fig.add_trace(go.Scatter3d(x=[None], y=[None], z=[None], mode='markers', showlegend=False))
 
+    # --- RULES #1 & #2: BOUNDS CLIPPING CONFIGURATIONS ---
     if st.session_state.simulation_path is not None:
         p_data = st.session_state.simulation_path
         x_coords = p_data[:, 0] if len(p_data.shape) == 2 else p_data[:, :, 0].flatten()
         y_coords = p_data[:, 1] if len(p_data.shape) == 2 else p_data[:, :, 1].flatten()
-        x_range = [float(np.min(x_coords) - 0.6), float(np.max(x_coords) + 0.6)]
-        y_range = [float(np.min(y_coords) - 0.6), float(np.max(y_coords) + 0.6)]
+        x_range = [float(np.min(x_coords) - 0.7), float(np.max(x_coords) + 0.7)]
+        y_range = [float(np.min(y_coords) - 0.7), float(np.max(y_coords) + 0.7)]
     else:
         x_range = [-2.0, 2.0] if "Ocean" in scenario else [-4.5, 4.5]
         y_range = [-1.0, 3.0] if "Ocean" in scenario else [-4.5, 4.5]
 
-    if "Ocean" in scenario: z_range, camera_eye = [0, 400], dict(x=1.5, y=-1.5, z=0.8)
-    elif "Cyberpunk" in scenario: z_range, camera_eye = [0, 25], dict(x=1.4, y=1.4, z=0.9)
-    else: z_range, camera_eye = [0, 40], dict(x=1.3, y=-1.3, z=1.0)
+    if "Ocean" in scenario: z_range = [0, 400]
+    elif "Cyberpunk" in scenario: z_range = [0, 25]
+    else: z_range = [0, 40]
 
     fig.update_layout(
         scene=dict(
             xaxis=dict(range=x_range, backgroundcolor="rgba(0,0,0,0)", gridcolor="rgba(255,255,255,0.1)", title="X Axis"),
             yaxis=dict(range=y_range, backgroundcolor="rgba(0,0,0,0)", gridcolor="rgba(255,255,255,0.1)", title="Y Axis"),
             zaxis=dict(range=z_range, backgroundcolor="rgba(0,0,0,0)", gridcolor="rgba(255,255,255,0.1)", title="Loss"),
-            camera=dict(eye=camera_eye, center=dict(x=0, y=0, z=-0.1))
+            camera=dict(eye=dict(x=1.6, y=0.0, z=1.2), center=dict(x=0, y=0, z=-0.1))
         ),
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=0, r=0, b=40, t=0), height=650, uirevision='constant_view_angle'
+        margin=dict(l=0, r=0, b=40, t=0), height=650, uirevision='constant_view_angle' 
     )
 
     st.plotly_chart(fig, width="stretch", key="tactical_loss_landscape_canvas")
@@ -383,7 +416,6 @@ elif st.session_state.app_screen == "HUD":
                 </audio>
             """
             st.markdown(audio_html, unsafe_allow_html=True)
-            # Fallback standard control widget
             st.audio(st.session_state.active_voice_broadcast, format="audio/mp3")
         else:
             st.caption("🔊 Audio deck offline.")
@@ -453,7 +485,6 @@ elif st.session_state.app_screen == "HUD":
         if st.session_state.hud_stage == "STORY_START":
             st.markdown("💡 *Communicate with your Guide. Record your voice or type your entry below.*")
             
-            # 🎙️ AUDIO RECORDING AND TRANSCRIPTION LAYER
             st.caption("🎙️ Live Microphone Input Link Array:")
             mic_audio_packet = st.audio_input("Record Oral Strategy Packet Override", key="hud_voice_recorder")
             
@@ -462,11 +493,9 @@ elif st.session_state.app_screen == "HUD":
                 st.success("🔊 Voice packet compiled into buffer. Translating signal...")
                 try:
                     recognizer = sr.Recognizer()
-                    # Convert Streamlit's audio file object into a form the speech_recognition engine reads
                     audio_file = sr.AudioFile(mic_audio_packet)
                     with audio_file as source:
                         audio_data = recognizer.record(source)
-                    # Run clean, free local transcription matrix
                     transcribed_text = recognizer.recognize_google(audio_data)
                     st.info(f"🎤 **TRANSCRIBED AUDIO MESSAGE:** '{transcribed_text}'")
                 except Exception as e:
@@ -482,7 +511,6 @@ elif st.session_state.app_screen == "HUD":
             st.write("\n")
             
             if st.button("🚀 TRANSMIT COMMUNICATIONS SIGNAL", key="submit_directive_btn"):
-                # System execution gate now successfully checks both text and vocal transcript channels!
                 final_transmission = user_input if user_input.strip() else transcribed_text
                 if not final_transmission.strip():
                     st.warning("Please type a message or speak into your microphone before hitting transmit.")
@@ -533,7 +561,7 @@ elif st.session_state.app_screen == "HUD":
                     st.session_state.simulation_path = np.array(optimizers.simulate_agwo(start_x, start_y, f_eval, steps=35, num_wolves=10))
                 st.rerun()
 
-            live_tweak = st.text_input("Send mid-flight steering optimization directive:", placeholder="e.g., Stabilize velocity vectors...", key="hud_live_tweak_input")
+            live_tweak = st.text_input("Send mid-flight steering optimization directive / Discuss with Guide:", placeholder="e.g., Explain this formula or ask an optimization question...", key="hud_live_tweak_input")
             if st.button("⚡ TRANSMIT STEERING OVERRIDE", key="live_tweak_btn"):
                 with st.spinner("Processing adjustments..."):
                     ai_payload = consult_mission_ai_chat(f"MID_FLIGHT_ADJUSTMENT: {live_tweak}", st.session_state.selected_algo, st.session_state.selected_scenario)
@@ -541,6 +569,8 @@ elif st.session_state.app_screen == "HUD":
                     st.session_state.current_hyperparameters = {
                         "lr": ai_payload.get("learning_rate", 0.01), "beta": ai_payload.get("momentum_beta", 0.9), "noise": ai_payload.get("exploration_noise", 0.2)
                     }
+                    audio_stream = generate_voice_transmission(st.session_state.mission_override_log)
+                    st.session_state.active_voice_broadcast = audio_stream.read() if audio_stream else None
                     st.session_state.simulation_path = None
                     st.rerun()
                 
