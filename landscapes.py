@@ -41,3 +41,27 @@ def get_desert_swarm_data():
     # Equation: f(x,y) = 20 + (x^2 - 10*cos(2*pi*x)) + (y^2 - 10*cos(2*pi*y))
     Z = 20 + (X**2 - 10 * np.cos(2 * np.pi * X)) + (Y**2 - 10 * np.cos(2 * np.pi * Y))
     return X, Y, Z
+
+def get_simple_arcade_data():
+    """
+    Generates a pristine, ultra-clean 'Fishing Net' Paraboloid Bowl.
+    The absolute best geometric shape for teaching gradient descent intuitively.
+    """
+    x = np.linspace(-3.0, 3.0, 100)
+    y = np.linspace(-3.0, 3.0, 100)
+    X, Y = np.meshgrid(x, y)
+    
+    # A perfect, elegant quadratic bowl shape
+    Z = X**2 + Y**2
+    return X, Y, Z
+
+def simple_arcade_fitness(x, y):
+    """Evaluates the height at any coordinate point on the fishing net."""
+    return float(x**2 + y**2)
+
+def simple_arcade_gradient(x, y):
+    """
+    Calculates the clean, smooth analytical gradient of the paraboloid bowl.
+    f(x,y) = x^2 + y^2  -->  df/dx = 2x,  df/dy = 2y
+    """
+    return 2 * x, 2 * y
